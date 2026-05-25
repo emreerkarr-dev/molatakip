@@ -224,15 +224,25 @@ function createRequest() {
     const u = db.users[currentUser.username];
 
     if (!u) { showNotification("Kullanıcı bulunamadı!", "error"); return; }
-    if (u.usedTime + DURATIONS[type] > MAX_DAILY) {
-        showNotification("Günlük mola limitinizi (60dk) aşıyorsunuz!", "error");
+    
+    let requestedDuration = DURATIONS[type];
+    const remainingTime = MAX_DAILY - (u.usedTime || 0);
+
+    if (remainingTime <= 0) {
+        showNotification("Günlük mola limitiniz doldu!", "error");
         return;
+    }
+
+    if (requestedDuration > remainingTime) {
+        requestedDuration = remainingTime;
+        showNotification(`Limitiniz kısıtlı olduğu için talep ${requestedDuration} dk olarak ayarlandı.`, "warning");
     }
 
     db.requests.push({
         id: generateId(),
         username: currentUser.username,
         type, status: 'pending',
+        duration: requestedDuration,
         reservationTime: resTime || null,
         createdAt: Date.now()
     });
@@ -264,13 +274,15 @@ function startBreak(id) {
         return;
     }
 
+    const plannedDuration = req.duration || DURATIONS[req.type];
+
     req.status = 'active';
     req.startedAt = Date.now();
-    req.endsAt = Date.now() + DURATIONS[req.type] * 60 * 1000;
+    req.endsAt = Date.now() + plannedDuration * 60 * 1000;
 
     const u = db.users[currentUser.username];
     if (u) {
-        u.usedTime += DURATIONS[req.type];
+        u.usedTime += plannedDuration;
         if (req.type === 'meal') u.hasTakenMealBreak = true;
     }
 
@@ -449,7 +461,8 @@ function renderActiveBreaks(containerId, db) {
     }
 
     active.forEach(req => {
-        const totalMs = DURATIONS[req.type] * 60 * 1000;
+        const plannedDuration = req.duration || DURATIONS[req.type];
+        const totalMs = plannedDuration * 60 * 1000;
         const left = Math.max(0, req.endsAt - Date.now());
         const pct = (left / totalMs) * 100;
         const circumference = 2 * Math.PI * 16;
@@ -459,10 +472,16 @@ function renderActiveBreaks(containerId, db) {
 
         const el = document.createElement('div');
         el.className = 'list-item';
+        
+        const actionBtn = (currentUser && (currentUser.username === req.username || currentUser.role === 'admin'))
+            ? `<button class="btn btn-ghost btn-sm" data-action="end-early" data-id="${req.id}" style="margin-top: 0.5rem; border-color: var(--danger); color: var(--danger);">Erken Bitir</button>`
+            : '';
+
         el.innerHTML = `
             <div class="list-item-info">
                 <strong>${req.username}</strong>
                 <span>${typeLabel}</span>
+                ${actionBtn}
             </div>
             <div class="timer-wrap">
                 <div class="timer-circle-container">
@@ -479,7 +498,44 @@ function renderActiveBreaks(containerId, db) {
         `;
         container.appendChild(el);
     });
+
+    if (!container.dataset.eventsBound) {
+        container.dataset.eventsBound = 'true';
+        container.addEventListener('click', e => {
+            const btn = e.target.closest('[data-action="end-early"]');
+            if (!btn) return;
+            endBreakEarly(btn.dataset.id);
+        });
+    }
 }
+
+function endBreakEarly(id) {
+    const db = getDB();
+    const req = db.requests.find(r => r.id === id);
+    if (!req || req.status !== 'active') return;
+
+    const actualMs = Date.now() - req.startedAt;
+    let actualMins = Math.ceil(actualMs / 60000); // round up to nearest minute
+    const plannedMins = req.duration || DURATIONS[req.type] || (req.type === 'short' ? 15 : 30);
+    
+    if (actualMins > plannedMins) actualMins = plannedMins;
+
+    const unusedMins = plannedMins - actualMins;
+
+    req.status = 'completed';
+    req.endsAt = Date.now();
+    req.usedMins = actualMins;
+
+    const u = db.users[req.username];
+    if (u) {
+        u.usedTime -= unusedMins;
+        if (u.usedTime < 0) u.usedTime = 0;
+    }
+
+    saveDB(db);
+    showNotification(`Mola erken bitirildi. Kalan ${unusedMins} dk iade edildi.`, "success");
+}
+
 
 function renderShiftList(containerId, db) {
     const container = $(containerId);
@@ -515,11 +571,30 @@ function startTimer() {
 
         const db = getDB();
         let changed = false;
+        
+        // --- GÜNLÜK SIFIRLAMA KONTROLÜ ---
+        const currentDate = new Date().toLocaleDateString('tr-TR');
+        if (!db.lastResetDate) {
+            db.lastResetDate = currentDate;
+            changed = true;
+        } else if (db.lastResetDate !== currentDate) {
+            db.lastResetDate = currentDate;
+            db.requests = []; // Tüm mola geçmişini temizle
+            for (let name in db.users) {
+                db.users[name].usedTime = 0;
+                db.users[name].hasTakenMealBreak = false;
+                db.users[name].shift = ''; // Vardiyaları temizle
+            }
+            changed = true;
+            showNotification("Yeni güne geçildi! Mola ve vardiya verileri sıfırlandı.", "info");
+        }
+
         const now = Date.now();
         const circumference = 2 * Math.PI * 16;
 
         (db.requests || []).filter(r => r.status === 'active').forEach(req => {
-            const totalMs = DURATIONS[req.type] * 60 * 1000;
+            const plannedDuration = req.duration || DURATIONS[req.type];
+            const totalMs = plannedDuration * 60 * 1000;
             const left = req.endsAt - now;
 
             // UI güncelle
