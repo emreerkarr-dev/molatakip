@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mola Takip Sistemi</title>
+    <meta name="description" content="Çalışanlar için mola talep, takip ve yönetim sistemi">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- YÜKLENİYOR -->
+    <div id="loading-screen">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h2>Mola Takip Sistemi</h2>
+            <p>Firebase'e bağlanıyor...</p>
+        </div>
+    </div>
+
+    <!-- BİLDİRİMLER -->
+    <div id="notification-container"></div>
+
+    <div id="app" style="display:none;">
+
+        <!-- ===== GİRİŞ ===== -->
+        <section id="login-view" class="view active">
+            <div class="login-bg">
+                <div class="orb orb-1"></div>
+                <div class="orb orb-2"></div>
+                <div class="orb orb-3"></div>
+            </div>
+            <div class="glass-card login-card">
+                <div class="login-logo">
+                    <svg viewBox="0 0 24 24" width="44" height="44" stroke="currentColor" stroke-width="1.5" fill="none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <h1>Mola Takip</h1>
+                <p class="login-sub">Sisteme giriş yaparak devam edin</p>
+                <form id="login-form">
+                    <div class="input-group">
+                        <label for="username">Ad Soyad</label>
+                        <input type="text" id="username" required placeholder="Adınızı giriniz" autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label for="role">Rol</label>
+                        <select id="role" required>
+                            <option value="employee">👤 Çalışan</option>
+                            <option value="admin">🛡️ Yönetici</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Giriş Yap →</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ===== ÇALIŞAN ===== -->
+        <section id="employee-view" class="view">
+            <header class="navbar glass-header">
+                <div class="nav-brand">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Mola Takip
+                </div>
+                <div id="emp-meal-warning" class="warning-pill" style="display:none;">⚠️ Yemek molası kullanılmadı!</div>
+                <div class="nav-user">
+                    <div class="user-avatar" id="emp-avatar">E</div>
+                    <span id="emp-welcome"></span>
+                    <button id="emp-logout" class="btn btn-ghost btn-sm">Çıkış</button>
+                </div>
+            </header>
+
+            <main class="dashboard-content">
+                <div class="left-panel">
+                    <!-- Mola Hakkı -->
+                    <div class="glass-card balance-card">
+                        <div class="card-header"><h2>Günlük Mola Hakkı</h2><span class="card-icon">⏱️</span></div>
+                        <div class="balance-stats">
+                            <div class="stat">
+                                <span class="stat-value" id="emp-remaining">60</span>
+                                <span class="stat-label">Kalan (dk)</span>
+                            </div>
+                            <div class="stat-divider"></div>
+                            <div class="stat">
+                                <span class="stat-value used" id="emp-used">0</span>
+                                <span class="stat-label">Kullanılan (dk)</span>
+                            </div>
+                        </div>
+                        <div class="progress-wrap">
+                            <div class="progress-bar"><div class="progress-fill" id="emp-progress"></div></div>
+                            <span class="progress-label" id="emp-progress-label">%0</span>
+                        </div>
+                    </div>
+
+                    <!-- Mola Talep -->
+                    <div class="glass-card">
+                        <div class="card-header"><h2>Mola Talep Et</h2><span class="card-icon">📋</span></div>
+                        <form id="request-form">
+                            <div class="break-type-selector">
+                                <label class="break-option">
+                                    <input type="radio" name="break-type" value="short" checked>
+                                    <div class="break-card"><span class="break-icon">☕</span><strong>Kısa Mola</strong><span>15 dk</span></div>
+                                </label>
+                                <label class="break-option">
+                                    <input type="radio" name="break-type" value="meal">
+                                    <div class="break-card"><span class="break-icon">🍽️</span><strong>Yemek Molası</strong><span>30 dk</span></div>
+                                </label>
+                            </div>
+                            <div class="input-group">
+                                <label for="reservation-time">Rezervasyon Saati (İsteğe Bağlı)</label>
+                                <input type="time" id="reservation-time">
+                                <small>Hemen çıkmak için boş bırakın.</small>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full">Talep Gönder</button>
+                        </form>
+                    </div>
+
+                    <!-- Taleplerim -->
+                    <div class="glass-card">
+                        <div class="card-header"><h2>Taleplerim</h2><span class="card-icon">📝</span></div>
+                        <div class="request-list" id="emp-requests-list"></div>
+                    </div>
+                </div>
+
+                <div class="right-panel">
+                    <!-- Molada Olanlar -->
+                    <div class="glass-card">
+                        <div class="card-header"><h2>Şu An Molada</h2><span class="live-dot"></span></div>
+                        <div class="active-list" id="active-breaks-list"></div>
+                    </div>
+                    <!-- Vardiyalar -->
+                    <div class="glass-card mt-4">
+                        <div class="card-header"><h2>Bugünün Vardiyaları</h2><span class="card-icon">📅</span></div>
+                        <div class="request-list" id="emp-shift-list"></div>
+                    </div>
+                </div>
+            </main>
+        </section>
+
+        <!-- ===== YÖNETİCİ ===== -->
+        <section id="admin-view" class="view">
+            <header class="navbar glass-header">
+                <div class="nav-brand">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Mola Takip
+                    <span class="badge admin-badge">Yönetici</span>
+                </div>
+                <div class="nav-user">
+                    <div class="user-avatar admin-av" id="admin-avatar">Y</div>
+                    <span id="admin-welcome"></span>
+                    <button id="admin-logout" class="btn btn-ghost btn-sm">Çıkış</button>
+                </div>
+            </header>
+
+            <!-- İstatistik Çubuğu -->
+            <div class="stats-bar">
+                <div class="stat-pill"><span class="dot dot-green"></span>Kısa Molada: <strong id="stat-short">0</strong>/1</div>
+                <div class="stat-pill"><span class="dot dot-blue"></span>Yemek Molasında: <strong id="stat-meal">0</strong>/1</div>
+                <div class="stat-pill"><span class="dot dot-yellow"></span>Bekleyen: <strong id="stat-pending">0</strong></div>
+                <div class="stat-pill"><span class="dot dot-purple"></span>Çalışan: <strong id="stat-employees">0</strong></div>
+            </div>
+
+            <main class="dashboard-content admin-layout">
+                <!-- Kolon 1 -->
+                <div class="admin-col">
+                    <div class="glass-card">
+                        <div class="card-header"><h2>Bekleyen Talepler</h2><span class="badge" id="pending-badge">0</span></div>
+                        <div class="request-list" id="admin-pending-list"></div>
+                    </div>
+                    <div class="glass-card mt-4">
+                        <div class="card-header"><h2>Çalışan Durumları</h2><span class="card-icon">👥</span></div>
+                        <div class="request-list" id="admin-employee-list"></div>
+                    </div>
+                </div>
+                <!-- Kolon 2 -->
+                <div class="admin-col">
+                    <div class="glass-card">
+                        <div class="card-header"><h2>Şu An Molada</h2><span class="live-dot"></span></div>
+                        <div class="active-list" id="admin-active-list"></div>
+                    </div>
+                    <div class="glass-card mt-4">
+                        <div class="card-header"><h2>Vardiya Ekle</h2><span class="card-icon">➕</span></div>
+                        <form id="add-shift-form">
+                            <div class="input-group">
+                                <label for="shift-username">Çalışan Adı</label>
+                                <input type="text" id="shift-username" required placeholder="Ad Soyad">
+                            </div>
+                            <div class="input-group">
+                                <label for="shift-time">Vardiya Saati</label>
+                                <input type="text" id="shift-time" required placeholder="Örn: 09:00 - 18:00">
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm btn-full">✓ Kaydet</button>
+                        </form>
+                    </div>
+                </div>
+                <!-- Kolon 3 -->
+                <div class="admin-col">
+                    <div class="glass-card">
+                        <div class="card-header"><h2>Vardiya Listesi</h2><span class="card-icon">📅</span></div>
+                        <div class="request-list" id="admin-shift-list"></div>
+                    </div>
+                    <div class="glass-card mt-4">
+                        <div class="card-header"><h2>Geçmiş Molalar</h2><span class="card-icon">📊</span></div>
+                        <div class="request-list" id="admin-reports-list"></div>
+                    </div>
+                </div>
+            </main>
+        </section>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
