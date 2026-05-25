@@ -22,7 +22,7 @@ const firestore = getFirestore(firebaseApp);
 const mainDocRef = doc(firestore, 'molaDB', 'data');
 
 // --- VERİTABANI ---
-let localDB = { users: {}, requests: [] };
+let localDB = { users: {}, requests: [], settings: { shortQuota: 1, mealQuota: 1 } };
 
 function getDB() {
     return JSON.parse(JSON.stringify(localDB));
@@ -268,9 +268,12 @@ function startBreak(id) {
 
     // Kapasite kontrolü
     const active = db.requests.filter(r => r.status === 'active');
-    if (active.some(r => r.type === req.type)) {
+    const activeSameTypeCount = active.filter(r => r.type === req.type).length;
+    const quota = (db.settings && db.settings[req.type + 'Quota']) ? db.settings[req.type + 'Quota'] : 1;
+
+    if (activeSameTypeCount >= quota) {
         const n = req.type === 'short' ? 'Kısa mola' : 'Yemek molası';
-        showNotification(`${n} kapasitesi dolu! Lütfen bekleyin.`, "error");
+        showNotification(`${n} kapasitesi dolu! (Maks: ${quota}) Lütfen bekleyin.`, "error");
         return;
     }
 
@@ -305,6 +308,15 @@ function setupAdminView() {
             e.preventDefault();
             addShift();
         });
+        $('settings-form').addEventListener('submit', e => {
+            e.preventDefault();
+            const db = getDB();
+            if (!db.settings) db.settings = {};
+            db.settings.shortQuota = parseInt($('quota-short').value) || 1;
+            db.settings.mealQuota = parseInt($('quota-meal').value) || 1;
+            saveDB(db);
+            showNotification("Mola kapasiteleri güncellendi.", "success");
+        });
     }
     renderAdmin();
 }
@@ -337,6 +349,14 @@ function renderAdmin() {
     $('stat-pending').textContent = pendingReqs.length;
     $('stat-employees').textContent = Object.keys(db.users || {}).length;
     $('pending-badge').textContent = pendingReqs.length;
+
+    // Kotaları güncelle
+    const sQuota = db.settings?.shortQuota || 1;
+    const mQuota = db.settings?.mealQuota || 1;
+    $('stat-short-quota').textContent = sQuota;
+    $('stat-meal-quota').textContent = mQuota;
+    if (document.activeElement !== $('quota-short')) $('quota-short').value = sQuota;
+    if (document.activeElement !== $('quota-meal')) $('quota-meal').value = mQuota;
 
     // Bekleyen Talepler
     const pendingList = $('admin-pending-list');
@@ -655,6 +675,7 @@ onSnapshot(mainDocRef,
             // Firestore arrays sometimes need normalization
             if (!Array.isArray(localDB.requests)) localDB.requests = [];
             if (!localDB.users || typeof localDB.users !== 'object') localDB.users = {};
+            if (!localDB.settings) localDB.settings = { shortQuota: 1, mealQuota: 1 };
         } else {
             // İlk kez: boş DB oluştur
             setDoc(mainDocRef, localDB).catch(console.error);

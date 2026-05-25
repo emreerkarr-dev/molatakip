@@ -153,8 +153,8 @@
 
             <!-- İstatistik Çubuğu -->
             <div class="stats-bar">
-                <div class="stat-pill"><span class="dot dot-green"></span>Kısa Molada: <strong id="stat-short">0</strong>/1</div>
-                <div class="stat-pill"><span class="dot dot-blue"></span>Yemek Molasında: <strong id="stat-meal">0</strong>/1</div>
+                <div class="stat-pill"><span class="dot dot-green"></span>Kısa Molada: <strong id="stat-short">0</strong>/<span id="stat-short-quota">1</span></div>
+                <div class="stat-pill"><span class="dot dot-blue"></span>Yemek Molasında: <strong id="stat-meal">0</strong>/<span id="stat-meal-quota">1</span></div>
                 <div class="stat-pill"><span class="dot dot-yellow"></span>Bekleyen: <strong id="stat-pending">0</strong></div>
                 <div class="stat-pill"><span class="dot dot-purple"></span>Çalışan: <strong id="stat-employees">0</strong></div>
             </div>
@@ -201,6 +201,20 @@
                     <div class="glass-card mt-4">
                         <div class="card-header"><h2>Geçmiş Molalar</h2><span class="card-icon">📊</span></div>
                         <div class="request-list" id="admin-reports-list"></div>
+                    </div>
+                    <div class="glass-card mt-4">
+                        <div class="card-header"><h2>Mola Ayarları</h2><span class="card-icon">⚙️</span></div>
+                        <form id="settings-form">
+                            <div class="input-group">
+                                <label for="quota-short">Kısa Mola Kapasitesi</label>
+                                <input type="number" id="quota-short" required min="1" max="100" placeholder="Aynı anda">
+                            </div>
+                            <div class="input-group">
+                                <label for="quota-meal">Yemek Molası Kapasitesi</label>
+                                <input type="number" id="quota-meal" required min="1" max="100" placeholder="Aynı anda">
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm btn-full">Ayarları Kaydet</button>
+                        </form>
                     </div>
                 </div>
             </main>
